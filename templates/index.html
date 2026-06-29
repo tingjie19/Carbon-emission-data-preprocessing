@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>碳健檢資料前處理工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a1a2e;
+      letter-spacing: 0.5px;
+    }
+    header p {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 28px 32px;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2 .badge {
+      background: #eef2ff;
+      color: #4338ca;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #6366f1;
+      background: #fafaff;
+    }
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-zone .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      line-height: 1;
+    }
+    .drop-zone .label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .drop-zone .hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .drop-zone.selected {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+    .drop-zone.selected .label { color: #065f46; }
+    .drop-zone .file-count {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #10b981;
+    }
+
+    /* Year input */
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .field label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      white-space: nowrap;
+    }
+    .field input[type="number"] {
+      width: 100px;
+      padding: 8px 12px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a2e;
+      transition: border-color 0.2s;
+    }
+    .field input[type="number"]:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    .field .year-hint {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    /* Run button */
+    #run-btn {
+      width: 100%;
+      max-width: 640px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #4f46e5;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.5px;
+    }
+    #run-btn:hover:not(:disabled) { background: #4338ca; }
+    #run-btn:active:not(:disabled) { transform: scale(0.98); }
+    #run-btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+
+    /* Progress */
+    #progress-card { display: none; }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2.5px solid #e0e7ff;
+      border-top-color: #4f46e5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4338ca;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Log */
+    #log {
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #374151;
+      white-space: pre-wrap;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    /* Download */
+    #download-btn {
+      display: none;
+      width: 100%;
+      max-width: 640px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #10b981;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+      text-align: center;
+      text-decoration: none;
+    }
+    #download-btn:hover { background: #059669; }
+
+    /* Error state */
+    .error-text {
+      font-size: 14px;
+      color: #dc2626;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>碳健檢資料前處理工具</h1>
+  <p>自動分割總分類帳、蓋章，並輸出水電瓦斯與燃料 Excel</p>
+</header>
+
+<!-- 年份 -->
+<div class="card">
+  <h2>設定 <span class="badge">必填</span></h2>
+  <div class="field">
+    <label>民國年份</label>
+    <input type="number" id="year" value="114" min="100" max="200">
+    <span class="year-hint">114 = 2025 年</span>
+  </div>
+</div>
+
+<!-- 總分類帳資料夾 -->
+<div class="card">
+  <h2>總分類帳資料夾 <span class="badge">必填</span></h2>
+  <div class="drop-zone" id="ledger-zone">
+    <input type="file" id="ledger-input" webkitdirectory multiple accept=".pdf">
+    <div class="icon">📁</div>
+    <div class="label">點擊選擇資料夾</div>
+    <div class="hint">資料夾內需含總分類帳 PDF（可選含目錄/封面）</div>
+    <div class="file-count" id="ledger-count"></div>
+  </div>
+</div>
+
+<!-- 大小章資料夾 -->
+<div class="card">
+  <h2>大小章資料夾 <span class="badge">選填</span></h2>
+  <div class="drop-zone" id="stamp-zone">
+    <input type="file" id="stamp-input" webkitdirectory multiple accept=".png">
+    <div class="icon">🔖</div>
+    <div class="label">點擊選擇大小章資料夾</div>
+    <div class="hint">需含 去背_大章.png 與 去背_小章.png</div>
+    <div class="file-count" id="stamp-count"></div>
+  </div>
+</div>
+
+<button id="run-btn" onclick="runProcess()">執行前處理</button>
+
+<!-- 進度 -->
+<div class="card" id="progress-card">
+  <h2>執行狀態</h2>
+  <div class="status-text" id="status-text">
+    <span class="spinner"></span> 處理中，請稍候...
+  </div>
+  <pre id="log"></pre>
+</div>
+
+<a id="download-btn">⬇ 下載結果 ZIP</a>
+
+<script>
+  // ── 檔案選擇回饋 ───────────────────────────────────────────
+  function setupDropZone(zoneId, inputId, countId) {
+    const zone  = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    const count = document.getElementById(countId);
+
+    input.addEventListener('change', () => {
+      const n = input.files.length;
+      if (n > 0) {
+        zone.classList.add('selected');
+        // 取資料夾名稱
+        const firstName = input.files[0].webkitRelativePath || input.files[0].name;
+        const folderName = firstName.split('/')[0];
+        count.textContent = `✓ ${folderName}（${n} 個檔案）`;
+      } else {
+        zone.classList.remove('selected');
+        count.textContent = '';
+      }
+    });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); });
+  }
+
+  setupDropZone('ledger-zone', 'ledger-input', 'ledger-count');
+  setupDropZone('stamp-zone',  'stamp-input',  'stamp-count');
+
+  // ── 執行 ───────────────────────────────────────────────────
+  async function runProcess() {
+    const ledgerInput = document.getElementById('ledger-input');
+    const stampInput  = document.getElementById('stamp-input');
+    const year        = document.getElementById('year').value;
+
+    if (!ledgerInput.files.length) {
+      alert('請先選擇總分類帳資料夾');
+      return;
+    }
+
+    // 準備 UI
+    const runBtn      = document.getElementById('run-btn');
+    const progressCard = document.getElementById('progress-card');
+    const statusText  = document.getElementById('status-text');
+    const logEl       = document.getElementById('log');
+    const downloadBtn = document.getElementById('download-btn');
+
+    runBtn.disabled    = true;
+    progressCard.style.display = 'block';
+    downloadBtn.style.display  = 'none';
+    logEl.textContent = '';
+    statusText.innerHTML = '<span class="spinner"></span> 上傳中...';
+    progressCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // 建立 FormData
+    const fd = new FormData();
+    fd.append('year', year);
+    for (const f of ledgerInput.files) fd.append('ledger_folder', f, f.webkitRelativePath || f.name);
+    for (const f of stampInput.files)  fd.append('stamp_folder',  f, f.webkitRelativePath || f.name);
+
+    statusText.innerHTML = '<span class="spinner"></span> 處理中，請稍候...';
+
+    try {
+      const res  = await fetch('/process', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      logEl.textContent = data.log || '';
+
+      if (data.success) {
+        statusText.innerHTML = `✅ 完成！共產出 ${data.file_count} 個檔案`;
+        statusText.style.color = '#059669';
+        downloadBtn.href  = `/download/${data.job_id}`;
+        downloadBtn.style.display = 'block';
+      } else {
+        statusText.innerHTML = `<span class="error-text">❌ 執行失敗</span>`;
+      }
+    } catch (err) {
+      statusText.innerHTML = `<span class="error-text">❌ 連線錯誤：${err.message}</span>`;
+    } finally {
+      runBtn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

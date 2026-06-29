@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 機敏資料（絕對不上傳）
+大小章/
+去背_大章.png
+去背_小章.png
+*.pdf
+!範例/*.pdf
+
+# 總分類帳原始資料
+總分類帳/
+未轉換/
+
+# 舊版腳本
+gasoline_process.py
+
+# Skill 打包檔（不需上傳到 GitHub）
+*.skill
+
+# 系統
+.DS_Store
+Thumbs.db
+
+# 暫存
+*.zip
+tmp/
+ziBhrVOW
+ziiKM93P

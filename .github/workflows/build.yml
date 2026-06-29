@@ -1,0 +1,97 @@
+name: 打包安裝檔
+
+# 推送 v* tag 時觸發（例如：git tag v1.0.0 && git push origin v1.0.0）
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ── macOS .app ─────────────────────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝依賴
+        run: pip install pyinstaller -r requirements.txt
+
+      - name: 打包成 .app
+        run: pyinstaller build.spec
+
+      - name: 壓縮 .app 為 zip
+        run: |
+          cd dist
+          zip -r "碳健檢前處理工具-macOS.zip" "碳健檢前處理工具.app"
+
+      - name: 上傳 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: dist/碳健檢前處理工具-macOS.zip
+
+  # ── Windows .exe ───────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝依賴
+        run: pip install pyinstaller -r requirements.txt
+
+      - name: 打包成 .exe
+        run: pyinstaller build.spec
+
+      - name: 上傳 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/碳健檢前處理工具.exe
+
+  # ── 建立 GitHub Release ────────────────────────────────────────────────────
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 下載 macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+
+      - name: 下載 Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+
+      - name: 建立 Release 並上傳檔案
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "碳健檢前處理工具 ${{ github.ref_name }}"
+          body: |
+            ## 下載說明
+            - **macOS**：下載 `碳健檢前處理工具-macOS.zip`，解壓縮後雙擊 .app 執行
+            - **Windows**：下載 `碳健檢前處理工具.exe`，雙擊執行
+
+            ## 使用方式
+            1. 開啟程式，瀏覽器會自動跳出
+            2. 選擇總分類帳資料夾與大小章資料夾
+            3. 按「執行前處理」
+            4. 下載結果 ZIP
+          files: |
+            碳健檢前處理工具-macOS.zip
+            碳健檢前處理工具.exe
