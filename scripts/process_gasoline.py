@@ -193,10 +193,10 @@ def write_xlsx(template_path, records, output_path, year=2025):
     fix_xlsx_for_upload(output_path, template_path, ref_row=REF)
     print(f"  → 已儲存 {output_path}（{len(records)} 列）")
 
-def run(pdf_path, template_dir, output_dir, roc_year=114, ad_year=2025):
-    folder_name = os.path.basename(os.path.dirname(os.path.abspath(pdf_path)))
+def run(pdf_path, template_dir, output_dir, roc_year=114, ad_year=2025, company_name=None):
+    folder_name = company_name or os.path.basename(os.path.dirname(os.path.abspath(pdf_path)))
     print(f"PDF: {pdf_path}")
-    print(f"資料夾名稱: {folder_name}，民國年: {roc_year}")
+    print(f"客戶: {folder_name}，民國年: {roc_year}")
 
     all_records = extract_data(pdf_path)
     print(f"共擷取 {len(all_records)} 筆燃料資料")

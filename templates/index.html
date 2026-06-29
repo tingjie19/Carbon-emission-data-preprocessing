@@ -232,7 +232,7 @@
 
 <header>
   <h1>碳健檢資料前處理工具</h1>
-  <p>自動分割總分類帳、蓋章，並輸出水電瓦斯與燃料 Excel</p>
+  <p>批次分割多位客戶總分類帳、蓋章，並輸出水電瓦斯與燃料 Excel</p>
 </header>
 
 <!-- 年份 -->
@@ -252,7 +252,7 @@
     <input type="file" id="ledger-input" webkitdirectory multiple accept=".pdf">
     <div class="icon">📁</div>
     <div class="label">點擊選擇資料夾</div>
-    <div class="hint">資料夾內需含總分類帳 PDF（可選含目錄/封面）</div>
+    <div class="hint">資料夾內含多份 {客戶名稱}{年}總分類帳.pdf，一次批次處理</div>
     <div class="file-count" id="ledger-count"></div>
   </div>
 </div>

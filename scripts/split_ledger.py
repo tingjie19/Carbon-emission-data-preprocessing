@@ -214,8 +214,11 @@ def scan_ledger_by_category(ledger_path):
     return entries
 
 
-def run(folder_path, roc_year=114, stamp_dir=None):
-    company, year = detect_company_and_year(folder_path, roc_year)
+def run(folder_path, roc_year=114, stamp_dir=None, company_name=None):
+    if company_name:
+        company, year = company_name, roc_year
+    else:
+        company, year = detect_company_and_year(folder_path, roc_year)
     print(f"公司: {company}，民國年: {year}")
 
     catalog_path = find_pdf(folder_path, company, year, '總分類帳目錄')
