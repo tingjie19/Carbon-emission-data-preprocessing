@@ -7,8 +7,16 @@ Windows：pyinstaller build.spec → dist/碳健檢前處理工具.exe
 """
 
 import sys
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
+
+# reportlab 子模組／字型資料檔很多，PyInstaller 的靜態掃描會漏收
+# （實測會出現 ImportError: cannot import name 'canvas' from 'reportlab.pdfgen'，
+# 導致蓋章功能在打包後的執行檔內被跳過）。用 collect_submodules/collect_data_files
+# 直接掃整個已安裝套件目錄，取代原本只列 'reportlab.pdfgen' 這種漏網的寫法。
+reportlab_hidden = collect_submodules('reportlab')
+reportlab_datas  = collect_data_files('reportlab')
 
 a = Analysis(
     ['app.py'],
@@ -18,7 +26,7 @@ a = Analysis(
         ('templates',  'templates'),   # HTML 前端
         ('範例',        '範例'),        # 範本 xlsx
         ('scripts',    'scripts'),     # Python 處理腳本
-    ],
+    ] + reportlab_datas,
     hiddenimports=[
         # Flask 相關
         'flask', 'werkzeug', 'jinja2', 'click', 'itsdangerous',
@@ -28,11 +36,10 @@ a = Analysis(
         # Excel 處理
         'openpyxl', 'openpyxl.styles', 'openpyxl.utils',
         # 圖片 / 蓋章
-        'PIL', 'PIL.Image', 'reportlab', 'reportlab.pdfgen',
-        'reportlab.lib.units',
+        'PIL', 'PIL.Image',
         # 腳本模組
         'split_ledger', 'process_utilities', 'process_gasoline',
-    ],
+    ] + reportlab_hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -46,9 +53,8 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 # onedir 模式：EXE 只放腳本本身，binaries/datas 由 COLLECT 另外收集成資料夾。
-# onefile + macOS .app windowed bundle 這個組合會被 PyInstaller 標示為不建議
-# （解壓到暫存目錄時容易被 Gatekeeper 擋下 Pillow/reportlab 等已編譯的原生函式庫，
-# 導致執行檔內 import 失敗，即使打包當下這些套件都有正確被收集）。
+# onefile + macOS .app windowed bundle 這個組合會被 PyInstaller 標示為不建議，
+# 官方建議一律改用 onedir。
 exe = EXE(
     pyz,
     a.scripts,
