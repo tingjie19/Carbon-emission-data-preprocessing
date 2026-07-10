@@ -45,20 +45,21 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# onedir 模式：EXE 只放腳本本身，binaries/datas 由 COLLECT 另外收集成資料夾。
+# onefile + macOS .app windowed bundle 這個組合會被 PyInstaller 標示為不建議
+# （解壓到暫存目錄時容易被 Gatekeeper 擋下 Pillow/reportlab 等已編譯的原生函式庫，
+# 導致執行檔內 import 失敗，即使打包當下這些套件都有正確被收集）。
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='碳健檢前處理工具',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,          # 不顯示黑色終端視窗
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -68,10 +69,21 @@ exe = EXE(
     icon=None,              # 可換成 .icns (macOS) 或 .ico (Windows)
 )
 
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='碳健檢前處理工具',
+)
+
 # macOS：額外產生 .app bundle
 if sys.platform == 'darwin':
     app_bundle = BUNDLE(
-        exe,
+        coll,
         name='碳健檢前處理工具.app',
         icon=None,
         bundle_identifier='com.carbon.audit.tool',

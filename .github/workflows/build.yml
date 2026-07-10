@@ -54,11 +54,14 @@ jobs:
       - name: 打包成 .exe
         run: pyinstaller build.spec
 
+      - name: 壓縮資料夾為 zip
+        run: Compress-Archive -Path "dist/碳健檢前處理工具" -DestinationPath "dist/碳健檢前處理工具-Windows.zip"
+
       - name: 上傳 artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/碳健檢前處理工具.exe
+          path: dist/碳健檢前處理工具-Windows.zip
 
   # ── 建立 GitHub Release ────────────────────────────────────────────────────
   release:
@@ -85,7 +88,7 @@ jobs:
           body: |
             ## 下載說明
             - **macOS**：下載 `碳健檢前處理工具-macOS.zip`，解壓縮後雙擊 .app 執行
-            - **Windows**：下載 `碳健檢前處理工具.exe`，雙擊執行
+            - **Windows**：下載 `碳健檢前處理工具-Windows.zip`，解壓縮後雙擊資料夾內的 .exe 執行
 
             ## 使用方式
             1. 開啟程式，瀏覽器會自動跳出
@@ -94,4 +97,4 @@ jobs:
             4. 下載結果 ZIP
           files: |
             碳健檢前處理工具-macOS.zip
-            碳健檢前處理工具.exe
+            碳健檢前處理工具-Windows.zip
