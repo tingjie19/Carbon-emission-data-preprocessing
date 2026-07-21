@@ -33,10 +33,13 @@ import pdfplumber
 from pypdf import PdfReader, PdfWriter
 
 # ── 關鍵字設定 ──────────────────────────────────────────────────────────────
-# 目錄關鍵字 → 輸出檔名後綴
+# 關鍵字（用於找出候選會計項目） → 輸出檔名後綴 → 需 100% 完全吻合的正式科目名稱
+# 會計項目名稱須與 exact_names 其中之一完全相同才會併入主檔；
+# 僅包含關鍵字但夾雜其他字元（例如「營業成本-水電瓦斯費」）視為不同科目，
+# 另存為獨立 PDF，不與主檔混在一起。
 TARGETS = [
-    (['水電瓦斯'],       '水電瓦斯'),
-    (['燃料', '汽油'],   '汽油'),
+    (['水電瓦斯'],       '水電瓦斯', ['水電瓦斯費']),
+    (['燃料', '汽油'],   '汽油',     ['燃料費', '汽油費']),
 ]
 
 
@@ -60,17 +63,21 @@ def extract_catalog(catalog_path):
     return sorted(seen.items(), key=lambda x: x[1])
 
 
-def get_page_range(keywords, entries_sorted):
+def get_page_ranges(keywords, entries_sorted):
     """
-    從排序後的目錄條目找出含 keywords 之條目的頁碼範圍。
+    從排序後的目錄條目找出所有含 keywords 之候選會計項目的頁碼範圍
+    （同一關鍵字可能對應多個科目名稱，例如「水電瓦斯費」與
+    「營業成本-水電瓦斯費」皆含「水電瓦斯」，須全部找出，
+    是否併入主檔則由呼叫端依 exact_names 100% 比對決定）。
     結尾頁 = 下一個條目的起始頁 - 1。
-    回傳 (start, end) 或 (None, None)。
+    回傳 [(name, start, end), ...]，找不到則回傳空列表。
     """
+    ranges = []
     for i, (name, start) in enumerate(entries_sorted):
         if any(kw in name for kw in keywords):
             end = entries_sorted[i + 1][1] - 1 if i + 1 < len(entries_sorted) else start
-            return start, end
-    return None, None
+            ranges.append((name, start, end))
+    return ranges
 
 
 def apply_stamps(output_path, stamp_dir):
@@ -137,15 +144,16 @@ def apply_stamps(output_path, stamp_dir):
         writer.write(f)
 
 
-def extract_pages(ledger_path, start_page, end_page, output_path, stamp_dir=None):
-    """從總分類帳擷取指定頁範圍（1-based）並另存，最後一頁蓋章。"""
+def extract_pages(ledger_path, ranges, output_path, stamp_dir=None):
+    """從總分類帳擷取指定頁範圍列表（1-based，可多段）合併另存，最後一頁蓋章。"""
     reader = PdfReader(ledger_path)
     writer = PdfWriter()
     total  = len(reader.pages)
-    end_page = min(end_page, total)
 
-    for i in range(start_page - 1, end_page):
-        writer.add_page(reader.pages[i])
+    for start_page, end_page in ranges:
+        end_page = min(end_page, total)
+        for i in range(start_page - 1, end_page):
+            writer.add_page(reader.pages[i])
 
     with open(output_path, 'wb') as f:
         writer.write(f)
@@ -153,7 +161,8 @@ def extract_pages(ledger_path, start_page, end_page, output_path, stamp_dir=None
     if stamp_dir:
         apply_stamps(output_path, stamp_dir)
 
-    print(f"  → {os.path.basename(output_path)}（第 {start_page}～{end_page} 頁，含蓋章）")
+    pages_desc = '、'.join(f'第 {s}～{e} 頁' for s, e in ranges)
+    print(f"  → {os.path.basename(output_path)}（{pages_desc}，含蓋章）")
 
 
 def detect_company_and_year(folder_path, roc_year):
@@ -251,15 +260,32 @@ def run(folder_path, roc_year=114, stamp_dir=None, company_name=None):
         entries = scan_ledger_by_category(ledger_path)
 
     found_any = False
-    for keywords, output_suffix in TARGETS:
-        start, end = get_page_range(keywords, entries)
-        if start is None:
+    for keywords, output_suffix, exact_names in TARGETS:
+        matches = get_page_ranges(keywords, entries)
+        if not matches:
             print(f"  未找到含 {'、'.join(keywords)} 的條目，略過")
             continue
-        out_name = f"{company}{year}{output_suffix}.pdf"
-        out_path = os.path.join(folder_path, out_name)
-        extract_pages(ledger_path, start, end, out_path, stamp_dir)
-        found_any = True
+
+        main_ranges = [(s, e) for name, s, e in matches if name in exact_names]
+        extra_by_name: dict[str, list] = {}
+        for name, s, e in matches:
+            if name not in exact_names:
+                extra_by_name.setdefault(name, []).append((s, e))
+
+        if main_ranges:
+            out_name = f"{company}{year}{output_suffix}.pdf"
+            out_path = os.path.join(folder_path, out_name)
+            extract_pages(ledger_path, main_ranges, out_path, stamp_dir)
+            found_any = True
+        else:
+            print(f"  找不到與「{'、'.join(exact_names)}」完全吻合的科目，主檔略過")
+
+        for name, name_ranges in extra_by_name.items():
+            print(f"  科目「{name}」含關鍵字但非完全吻合，另存獨立 PDF")
+            out_name = f"{company}{year}{name}.pdf"
+            out_path = os.path.join(folder_path, out_name)
+            extract_pages(ledger_path, name_ranges, out_path, stamp_dir)
+            found_any = True
 
     if found_any:
         print("\n完成！")
